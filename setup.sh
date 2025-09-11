@@ -48,7 +48,7 @@ if [ ! -d ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting ]; then
 fi
 
 echo "Setting Zsh as default shell"
-chsh -s "$(command -v zsh)"
+chsh -s $(which zsh)
 echo "Sourcing .zshrc configuration..."
 
 cp ${env_repo}/.zshrc ~/
@@ -67,12 +67,13 @@ build_tool_chain() {
 	sub_arch=$2
 	archive=${sub_arch}--glibc--stable-2025.08-1.tar.xz
 	mkdir -p ${LINUX_TOOL_CHAIN}/${arch}
-	if [ ! -f ${archive} ]; then
-		wget -O ${archive} \
-			https://toolchains.bootlin.com/downloads/releases/toolchains/${sub_arch}/tarballs/${archive}
-	fi
+
 	if [ ! -d ${LINUX_TOOL_CHAIN}/${arch}/bin ]; then
 		pushd ${LINUX_TOOL_CHAIN}/${arch}
+		if [ ! -f ${archive} ]; then
+			wget -O ${archive} \
+				https://toolchains.bootlin.com/downloads/releases/toolchains/${sub_arch}/tarballs/${archive}
+		fi
 		tar -xf ${archive} --strip-components=1
 		popd
 	fi
