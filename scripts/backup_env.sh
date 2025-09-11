@@ -6,8 +6,8 @@ cp ~/.vimrc ${env_repo}
 cp ~/.zshrc ${env_repo}
 cp ~/.bashrc ${env_repo}
 cp ~/.gitconfig ${env_repo}
-cp ~/scripts/* ${env_repo}/scripts
-cp ${LINUX_ROOT}/*.sh ${env_repo}/linux
+cp -a ~/scripts/* ${env_repo}/scripts
+cp -a ${LINUX_ROOT}/*.sh ${env_repo}/linux
 
 # backup .config files
 echo "[2/3] Copy linux .config files."
