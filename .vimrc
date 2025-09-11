@@ -32,7 +32,7 @@ let g:tagbar_show_tag_linenumbers = 2
 let g:tagbar_sort=0
 
 "pathogen for self-managed plugin
-execute pathogen#infect()
+" execute pathogen#infect()
 
 "linux code style
 " 100 characters line
