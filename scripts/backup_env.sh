@@ -27,6 +27,6 @@ if git status --porcelain | grep -q '^[ MADRCU?][ MDAU?TRC ]'; then
 
 	git add -A .
 	git commit -m "$COMMIT_MSG"
-#	git push origin
+	git push origin
 fi
 popd
