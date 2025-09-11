@@ -4,6 +4,7 @@ env_repo=~/develop-env
 echo "[1/3] Copy config and script files."
 cp ~/.vimrc ${env_repo}
 cp ~/.zshrc ${env_repo}
+cp ~/.oh-my-zsh/custom/*.zsh ${env_repo}/.oh-my-zsh/custom/
 cp ~/.bashrc ${env_repo}
 cp ~/.gitconfig ${env_repo}
 cp -a ~/scripts/* ${env_repo}/scripts
