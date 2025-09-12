@@ -48,7 +48,7 @@ if [ ! -d ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting ]; then
 fi
 
 echo "Setting Zsh as default shell"
-chsh -s $(which zsh)
+chsh -s "$(command -v zsh)"
 echo "Sourcing .zshrc configuration..."
 
 cp ${env_repo}/.zshrc ~/
@@ -60,6 +60,12 @@ cp -ar ${env_repo}/linux/* ${LINUX_ROOT}
 mkdir -p ${LINUX_SOURCE}
 mkdir -p ${LINUX_VSCODE}
 mkdir -p ${LINUX_ROOT}/linux-qemu
+if [ -d /lib/modules/$(uname -r)/build ]; then
+	cp -dR /lib/modules/$(uname -r)/build /lib/modules/$(uname -r)/build.bak
+fi
+if [ -d /lib/modules/$(uname -r)/source ]; then
+    cp -dR /lib/modules/$(uname -r)/source /lib/modules/$(uname -r)/source.bak
+fi
 
 echo "[6/7] Installing cross-compiler."
 build_tool_chain() {
@@ -67,13 +73,12 @@ build_tool_chain() {
 	sub_arch=$2
 	archive=${sub_arch}--glibc--stable-2025.08-1.tar.xz
 	mkdir -p ${LINUX_TOOL_CHAIN}/${arch}
-
+	if [ ! -f ${archive} ]; then
+		wget -O ${archive} \
+			https://toolchains.bootlin.com/downloads/releases/toolchains/${sub_arch}/tarballs/${archive}
+	fi
 	if [ ! -d ${LINUX_TOOL_CHAIN}/${arch}/bin ]; then
 		pushd ${LINUX_TOOL_CHAIN}/${arch}
-		if [ ! -f ${archive} ]; then
-			wget -O ${archive} \
-				https://toolchains.bootlin.com/downloads/releases/toolchains/${sub_arch}/tarballs/${archive}
-		fi
 		tar -xf ${archive} --strip-components=1
 		popd
 	fi
