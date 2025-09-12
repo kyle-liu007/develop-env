@@ -58,10 +58,24 @@ zsh ~/.zshrc
 echo "[5/7] Building linux tree"
 cp -ar ${env_repo}/linux/* ${LINUX_ROOT}
 mkdir -p ${LINUX_SOURCE}
-mkdir -p ${LINUX_SOURCE}/linux-$(get_linux_version.sh 2)
-mkdir -p ${LINUX_SOURCE}/linux-$(get_linux_version.sh 4)
-mkdir -p ${LINUX_SOURCE}/linux-$(get_linux_version.sh 5)
-mkdir -p ${LINUX_SOURCE}/linux-$(get_linux_version.sh 6)
+build_linux_source() {
+	linux_version=$(get_linux_version.sh $1)
+	archive=linux-${linux_version}.tar.gz
+	path=${LINUX_SOURCE}/linux-${linux_version}
+	if [ ! -d ${path} ]; then
+		mkdir -p ${path}
+		pushd ${LINUX_SOURCE}
+		if [ ! -f ${archive} ]; then
+			wget https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/snapshot/${archive}
+		fi
+		tar -xf ${archive} -C ${path} --strip-components=1
+		popd
+	fi
+}
+build_linux_source 2
+build_linux_source 4
+build_linux_source 5
+build_linux_source 6
 mkdir -p ${LINUX_VSCODE}
 mkdir -p ${LINUX_ROOT}/linux-qemu
 if [ -d /lib/modules/$(uname -r)/build ]; then
@@ -80,7 +94,7 @@ build_tool_chain() {
 		mkdir -p ${LINUX_TOOL_CHAIN}/${arch}
 		pushd ${LINUX_TOOL_CHAIN}/${arch}
 		if [ ! -f ${archive} ]; then
-			wget -O ${archive} \
+			wget \
 				https://toolchains.bootlin.com/downloads/releases/toolchains/${sub_arch}/tarballs/${archive}
 		fi
 		tar -xf ${archive} --strip-components=1
