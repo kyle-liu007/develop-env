@@ -58,6 +58,10 @@ zsh ~/.zshrc
 echo "[5/7] Building linux tree"
 cp -ar ${env_repo}/linux/* ${LINUX_ROOT}
 mkdir -p ${LINUX_SOURCE}
+mkdir -p ${LINUX_SOURCE}/linux-$(get_linux_version.sh 2)
+mkdir -p ${LINUX_SOURCE}/linux-$(get_linux_version.sh 4)
+mkdir -p ${LINUX_SOURCE}/linux-$(get_linux_version.sh 5)
+mkdir -p ${LINUX_SOURCE}/linux-$(get_linux_version.sh 6)
 mkdir -p ${LINUX_VSCODE}
 mkdir -p ${LINUX_ROOT}/linux-qemu
 if [ -d /lib/modules/$(uname -r)/build ]; then
