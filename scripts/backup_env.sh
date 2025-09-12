@@ -7,7 +7,6 @@ cp ~/.zshrc ${env_repo}
 cp ~/.oh-my-zsh/custom/*.zsh ${env_repo}/.oh-my-zsh/custom/
 cp ~/.bashrc ${env_repo}
 cp ~/.gitconfig ${env_repo}
-cp -a ~/setup.sh ${env_repo}
 cp -a ~/scripts/* ${env_repo}/scripts
 cp -a ${LINUX_ROOT}/*.sh ${env_repo}/linux
 
