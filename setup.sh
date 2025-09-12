@@ -1,13 +1,14 @@
 #!/bin/bash
 
 # install essential sdk
-echo "[1/7] Installing Linux Kernel SDK..."
+echo "[1/7] Installing essential sdks and some tools"
 sudo apt update && sudo apt install -y \
     build-essential libncurses-dev bison flex \
     libssl-dev libelf-dev bc git fakeroot \
     libudev-dev libpci-dev libiberty-dev \
     openssl dwarves zstd libdw-dev libunwind-dev\
-	binutils-dev cpio libslang2-dev udev
+	binutils-dev cpio libslang2-dev udev \
+	cscope trash-cli
 
 echo "[2/7] Clone develop environment configuration"
 env_repo=~/develop-env

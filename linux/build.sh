@@ -22,9 +22,11 @@ fi
 
 if [ ! -f ${output}/.config ]; then
     make ARCH=${arch} CROSS_COMPILE=${cross_compile} defconfig O=${output}
+else
+	make ARCH=${arch} CROSS_COMPILE=${cross_compile} oldconfig O=${output}
 fi
 make ARCH=${arch} CROSS_COMPILE=${cross_compile} menuconfig O=${output}
-make ARCH=${arch} CROSS_COMPILE=${cross_compile} -j O=${output}
+make ARCH=${arch} CROSS_COMPILE=${cross_compile} -j$(nproc) O=${output}
 make ARCH=${arch} CROSS_COMPILE=${cross_compile} COMPILED_SOURCE=1 KBUILD_ABS_SRCTREE=1 cscope O=${output}
 make ARCH=${arch} CROSS_COMPILE=${cross_compile} modules_prepare O=${output}
 popd

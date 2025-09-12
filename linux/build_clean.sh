@@ -17,6 +17,5 @@ output=${LINUX_BUILD}/linux-${linux_version}/${arch}
 #rm -r ${source}/arch/${arch}/include/generated/
 
 pushd ${source}
-make mrproper
 make mrproper O=${output}
 popd

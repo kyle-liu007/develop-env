@@ -1,4 +1,4 @@
-alias rm='DIR=/tmp/rm`date +%F%T`;mkdir $DIR;mv -t $DIR'
+#alias rm='DIR=/tmp/rm`date +%F%T`;mkdir $DIR;mv -t $DIR'
 alias cp='cp -i'
 alias mv='mv -i'
 
