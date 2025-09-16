@@ -77,6 +77,9 @@ set background=dark    " Setting dark mode
 " set background=dark
 " colorscheme onedark
 
+" cscope mapping
+nmap <C-\>a :cs find a <C-R>=expand("<cword>")<CR><CR>
+
 
 " vim config
 set wildmenu
