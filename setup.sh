@@ -8,7 +8,7 @@ sudo apt update && sudo apt install -y \
     libudev-dev libpci-dev libiberty-dev \
     openssl dwarves zstd libdw-dev libunwind-dev\
 	binutils-dev cpio libslang2-dev udev \
-	cscope trash-cli universal-ctags
+	cscope trash-cli universal-ctags cmake
 
 echo "[2/7] Clone develop environment configuration"
 env_repo=~/develop-env
