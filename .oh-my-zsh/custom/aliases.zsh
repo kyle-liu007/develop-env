@@ -1,6 +1,7 @@
 #alias rm='DIR=/tmp/rm`date +%F%T`;mkdir $DIR;mv -t $DIR'
 alias cp='cp -i'
 alias mv='mv -i'
+alias rm='trash'
 
 alias proxy='
     export HTTPS_PROXY="http://${hostip}:${hostport}";
