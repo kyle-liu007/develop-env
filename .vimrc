@@ -19,6 +19,8 @@ Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
 " git intergration
 Plug 'tpope/vim-fugitive'
+" code comment
+Plug 'preservim/nerdcommenter'
 call plug#end()
 
 "nerdtree
@@ -79,6 +81,20 @@ set background=dark    " Setting dark mode
 
 " cscope mapping
 nmap <C-\>a :cs find a <C-R>=expand("<cword>")<CR><CR>
+
+" nerdcommenter config
+" Create default mappings
+let g:NERDCreateDefaultMappings = 1
+" Add spaces after comment delimiters by default
+let g:NERDSpaceDelims = 1
+" Use compact syntax for prettified multi-line comments
+let g:NERDCompactSexyComs = 1
+" Align line-wise comment delimiters flush left instead of following code indentation
+let g:NERDDefaultAlign = 'left'
+" Allow commenting and inverting empty lines (useful when commenting a region)
+let g:NERDCommentEmptyLines = 1
+" Enable trimming of trailing whitespace when uncommenting
+let g:NERDTrimTrailingWhitespace = 1
 
 
 " vim config

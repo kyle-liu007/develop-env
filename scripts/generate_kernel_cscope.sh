@@ -67,6 +67,6 @@ mv .cscope.files cscope.files
 cscope -b -q -k
 
 # generate compile_commands.json
-# by default, $working_dir is where your module ouput path, or you should pass it to $3
-#generate_compdb.py -r ${linux_source} ${module_output} ${linux_output}
+# by default, $working_dir is where your module ouput path, or you should pass it to $4
+generate_compdb.py -r ${module_output} ${linux_output}
 #code .

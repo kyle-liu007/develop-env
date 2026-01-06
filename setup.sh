@@ -18,7 +18,7 @@ fi
 cp ${env_repo}/.gitconfig ~/ 
 cp -ar ${env_repo}/scripts ~/
 
-echo "[3/7] Configuring Vim with vim-plug..."
+echo "[3/7] Configuring vim"
 cp ${env_repo}/.vimrc ~/
 if ! command -v vim &> /dev/null; then
 	echo "Error: Vim not found. Install Vim first."
