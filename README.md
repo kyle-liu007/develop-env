@@ -16,6 +16,7 @@ environment for daily develop
 
 ### scripts/
 - `source ktoolchain.sh` 后使用：`ktoolchain use x86|arm64|riscv`、`ktoolchain current`、`ktoolchain off`。
+- `ktoolchain use <arch>` 会同时导出 `ARCH`、`CROSS_COMPILE` 以及 `CC/CXX/AR/LD/...`，便于普通 `make` 直接使用交叉编译器。
 - `source prepare_module_build_env.sh <linux_key> <arch> [rebuild]`：准备模块编译环境并更新 `/lib/modules/$(uname -r)/build`。
 - `source unset_module_build_env.sh`：关闭工具链并恢复模块编译环境。
 - `generate_kernel_cscope.sh <linux_key> <arch> [rebuild] [module_output]`：生成当前目录 `cscope.files` 并构建 cscope 数据库。

@@ -28,6 +28,29 @@ _ktoolchain_restore_path() {
 	fi
 }
 
+_ktoolchain_set_tool_vars() {
+	if [ -z "${CROSS_COMPILE}" ]; then
+		return 0
+	fi
+
+	export CC="${CROSS_COMPILE}gcc"
+	export CXX="${CROSS_COMPILE}g++"
+	export CPP="${CROSS_COMPILE}cpp"
+	export AS="${CROSS_COMPILE}as"
+	export LD="${CROSS_COMPILE}ld"
+	export AR="${CROSS_COMPILE}ar"
+	export NM="${CROSS_COMPILE}nm"
+	export STRIP="${CROSS_COMPILE}strip"
+	export OBJCOPY="${CROSS_COMPILE}objcopy"
+	export OBJDUMP="${CROSS_COMPILE}objdump"
+	export RANLIB="${CROSS_COMPILE}ranlib"
+	export READELF="${CROSS_COMPILE}readelf"
+}
+
+_ktoolchain_unset_tool_vars() {
+	unset CC CXX CPP AS LD AR NM STRIP OBJCOPY OBJDUMP RANLIB READELF
+}
+
 _ktoolchain_show_current() {
 	echo "ARCH=${ARCH:-<unset>}"
 	echo "CROSS_COMPILE=${CROSS_COMPILE:-<unset>}"
@@ -35,6 +58,10 @@ _ktoolchain_show_current() {
 	echo "gcc=$(command -v gcc || echo '<not found>')"
 	if [ -n "${CROSS_COMPILE}" ]; then
 		echo "${CROSS_COMPILE}gcc=$(command -v "${CROSS_COMPILE}gcc" || echo '<not found>')"
+	fi
+	echo "CC=${CC:-<unset>}"
+	if [ -n "${CC}" ]; then
+		echo "CC_path=$(command -v "${CC}" || echo '<not found>')"
 	fi
 }
 
@@ -63,9 +90,11 @@ _ktoolchain_use() {
 	fi
 	_ktoolchain_restore_path
 	unset ARCH CROSS_COMPILE TC_TARGET KTOOLCHAIN_ACTIVE_ARCH KTOOLCHAIN_ACTIVE_BIN
+	_ktoolchain_unset_tool_vars
 
 	# shellcheck disable=SC1090
 	source "${env_file}"
+	_ktoolchain_set_tool_vars
 	echo "Switched cross toolchain to ${arch}."
 	_ktoolchain_show_current
 }
@@ -74,6 +103,7 @@ _ktoolchain_off() {
 	_ktoolchain_restore_path
 	unset KTOOLCHAIN_ORIGINAL_PATH
 	unset ARCH CROSS_COMPILE TC_TARGET KTOOLCHAIN_ACTIVE_ARCH KTOOLCHAIN_ACTIVE_BIN
+	_ktoolchain_unset_tool_vars
 	echo "Cross toolchain is disabled for current shell."
 	_ktoolchain_show_current
 }
@@ -105,7 +135,9 @@ ktoolchain() {
 
 if ! _ktoolchain_is_sourced; then
 	if [ "$1" = "use" ] || [ "$1" = "off" ]; then
-		echo "Warning: source this file before running 'ktoolchain ${1}' to persist env changes." >&2
+		echo "Error: '${1}' must run in current shell. Use source first." >&2
+		echo "Example: source ${BASH_SOURCE[0]} && ktoolchain ${1} ${2}" >&2
+		exit 1
 	fi
 	ktoolchain "$@"
 fi
