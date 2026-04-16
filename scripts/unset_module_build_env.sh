@@ -1,7 +1,19 @@
 #!/bin/bash
 
 is_sourced() {
-	[ "${BASH_SOURCE[0]}" != "$0" ]
+	if [ -n "${ZSH_VERSION:-}" ]; then
+		case "${ZSH_EVAL_CONTEXT:-}" in
+			*:file*) return 0 ;;
+		esac
+		return 1
+	fi
+
+	if [ -n "${BASH_VERSION:-}" ]; then
+		[ "${BASH_SOURCE[0]}" != "$0" ]
+		return
+	fi
+
+	return 1
 }
 
 finish() {

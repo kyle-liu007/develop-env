@@ -3,8 +3,35 @@
 # Should be sourced to persist exported env variables.
 # ===========================================================
 
+script_path() {
+	if [ -n "${BASH_VERSION:-}" ] && [ -n "${BASH_SOURCE[0]:-}" ]; then
+		printf '%s\n' "${BASH_SOURCE[0]}"
+		return
+	fi
+
+	if [ -n "${ZSH_VERSION:-}" ]; then
+		# In zsh, %x expands to current script path.
+		eval 'printf "%s\n" "${(%):-%x}"'
+		return
+	fi
+
+	printf '%s\n' "$0"
+}
+
 is_sourced() {
-	[ "${BASH_SOURCE[0]}" != "$0" ]
+	if [ -n "${ZSH_VERSION:-}" ]; then
+		case "${ZSH_EVAL_CONTEXT:-}" in
+			*:file*) return 0 ;;
+		esac
+		return 1
+	fi
+
+	if [ -n "${BASH_VERSION:-}" ]; then
+		[ "${BASH_SOURCE[0]}" != "$0" ]
+		return
+	fi
+
+	return 1
 }
 
 finish() {
@@ -18,8 +45,10 @@ finish() {
 require_env_vars() {
 	local missing=0
 	local var_name
+	local var_value
 	for var_name in "$@"; do
-		if [ -z "${!var_name}" ]; then
+		eval "var_value=\${${var_name}:-}"
+		if [ -z "${var_value}" ]; then
 			echo "Missing environment variable: ${var_name}" >&2
 			missing=1
 		fi
@@ -28,7 +57,7 @@ require_env_vars() {
 }
 
 if [ $# -lt 2 ]; then
-	echo "Usage: ${BASH_SOURCE[0]} <linux version key> <arch> [rebuild]" >&2
+	echo "Usage: $(script_path) <linux version key> <arch> [rebuild]" >&2
 	finish 1
 fi
 
@@ -44,10 +73,10 @@ if ! declare -F ktoolchain >/dev/null 2>&1; then
 fi
 
 if ! get_linux_version="$(command -v get_linux_version.sh)"; then
-	get_linux_version="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/get_linux_version.sh"
+	get_linux_version="$(cd "$(dirname "$(script_path)")" && pwd)/get_linux_version.sh"
 fi
 if ! unset_module_build_env="$(command -v unset_module_build_env.sh)"; then
-	unset_module_build_env="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/unset_module_build_env.sh"
+	unset_module_build_env="$(cd "$(dirname "$(script_path)")" && pwd)/unset_module_build_env.sh"
 fi
 if [ ! -x "${get_linux_version}" ]; then
 	echo "Error: get_linux_version.sh not found." >&2

@@ -1,5 +1,20 @@
 #!/bin/bash
 
+_ktoolchain_script_path() {
+	if [ -n "${BASH_VERSION:-}" ] && [ -n "${BASH_SOURCE[0]:-}" ]; then
+		printf '%s\n' "${BASH_SOURCE[0]}"
+		return
+	fi
+
+	if [ -n "${ZSH_VERSION:-}" ]; then
+		# In zsh, %x expands to current script path.
+		eval 'printf "%s\n" "${(%):-%x}"'
+		return
+	fi
+
+	printf '%s\n' "$0"
+}
+
 _ktoolchain_usage() {
 	echo "Usage:"
 	echo "  ktoolchain use x86|arm64|riscv"
@@ -19,7 +34,19 @@ _ktoolchain_env_file() {
 }
 
 _ktoolchain_is_sourced() {
-	[ "${BASH_SOURCE[0]}" != "$0" ]
+	if [ -n "${ZSH_VERSION:-}" ]; then
+		case "${ZSH_EVAL_CONTEXT:-}" in
+			*:file*) return 0 ;;
+		esac
+		return 1
+	fi
+
+	if [ -n "${BASH_VERSION:-}" ]; then
+		[ "${BASH_SOURCE[0]}" != "$0" ]
+		return
+	fi
+
+	return 1
 }
 
 _ktoolchain_restore_path() {
@@ -136,7 +163,7 @@ ktoolchain() {
 if ! _ktoolchain_is_sourced; then
 	if [ "$1" = "use" ] || [ "$1" = "off" ]; then
 		echo "Error: '${1}' must run in current shell. Use source first." >&2
-		echo "Example: source ${BASH_SOURCE[0]} && ktoolchain ${1} ${2}" >&2
+		echo "Example: source $(_ktoolchain_script_path) && ktoolchain ${1} ${2}" >&2
 		exit 1
 	fi
 	ktoolchain "$@"
