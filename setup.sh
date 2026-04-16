@@ -111,12 +111,27 @@ step3_configure_vim() {
 			https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 	fi
 	echo "Installing plugins via vim-plug..."
-	vim --headless +PlugInstall +qa
+	vim -Nu ~/.vimrc -n -e "+PlugInstall --sync" +qa
 }
 
 step4_configure_zsh() {
+	local zsh_bin
+	local session_parent_shell
+	local session_parent_shell_name
+
 	cp "${ENV_REPO}/.bashrc" "${HOME}/"
-	sudo apt-get install -y zsh
+	if ! command -v zsh >/dev/null 2>&1; then
+		echo "zsh not found."
+		if sudo -n true 2>/dev/null; then
+			echo "Installing zsh..."
+			sudo -n apt-get install -y zsh
+		else
+			echo "Warning: no sudo privilege, cannot install zsh automatically."
+			echo "Please ask admin to install zsh, then rerun this step."
+			return 0
+		fi
+	fi
+	zsh_bin="$(command -v zsh)"
 
 	if [ ! -d "${HOME}/.oh-my-zsh" ]; then
 		echo "Installing oh-my-zsh..."
@@ -133,8 +148,24 @@ step4_configure_zsh() {
 			"${HOME}/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
 	fi
 
-	echo "Setting Zsh as default shell"
-	chsh -s "$(command -v zsh)"
+	session_parent_shell="$(ps -p "${PPID}" -o comm= 2>/dev/null | tr -d '[:space:]')"
+	session_parent_shell_name="${session_parent_shell##*/}"
+
+	if [ "${session_parent_shell_name}" = "zsh" ]; then
+		echo "Current session shell is zsh, skipping default shell change."
+	else
+		echo "Setting zsh as default shell"
+		if sudo -n true 2>/dev/null; then
+			if sudo -n chsh -s "${zsh_bin}" "${USER}"; then
+				echo "Default shell updated to ${zsh_bin}"
+			else
+				echo "Warning: failed to change default shell automatically."
+			fi
+		else
+			echo "Warning: skipping default shell change because sudo privilege is unavailable."
+			echo "Run manually when needed: sudo chsh -s ${zsh_bin} ${USER}"
+		fi
+	fi
 
 	cp "${ENV_REPO}/.zshrc" "${HOME}/"
 	cp "${ENV_REPO}/.oh-my-zsh/custom/"* "${HOME}/.oh-my-zsh/custom/"
@@ -209,7 +240,6 @@ step6_install_cross_compiler() {
 step7_generate_cross_compiler_env() {
 	local get_cross_compiler
 	local env_dir
-	local shell_hint_found=0
 	local ktoolchain_script
 
 	if ! get_cross_compiler="$(find_helper_script get_cross_compiler.sh)"; then
@@ -255,13 +285,6 @@ EOF
 		ktoolchain_script="${SCRIPT_DIR}/scripts/ktoolchain.sh"
 	fi
 
-	if [ -f "${HOME}/.bashrc" ] && grep -q "ktoolchain.sh" "${HOME}/.bashrc"; then
-		shell_hint_found=1
-	fi
-	if [ -f "${HOME}/.zshrc" ] && grep -q "ktoolchain.sh" "${HOME}/.zshrc"; then
-		shell_hint_found=1
-	fi
-
 	echo "Generated cross-toolchain env files under ${env_dir}:"
 	echo "  - x86.env"
 	echo "  - arm64.env"
@@ -269,10 +292,6 @@ EOF
 	echo "Switch toolchain in current shell with:"
 	echo "  source ${ktoolchain_script}"
 	echo "  ktoolchain use arm64"
-
-	if [ "${shell_hint_found}" -eq 0 ]; then
-		echo "Hint: add 'source ${ktoolchain_script}' to ~/.bashrc or ~/.zshrc for convenience."
-	fi
 }
 
 echo "Interactive setup started."

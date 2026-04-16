@@ -16,3 +16,6 @@ export DISPLAY=`grep -oP "(?<=nameserver ).+" /etc/resolv.conf`:0.0
 export hostip=$(ip route | grep default | awk '{print $3}')
 #export hostip=127.0.0.1
 export hostport=7897
+
+# scripts
+source ktoolchain.sh
