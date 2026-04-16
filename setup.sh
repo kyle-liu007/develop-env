@@ -206,40 +206,73 @@ step6_install_cross_compiler() {
 	build_tool_chain x86 x86-64
 }
 
-step7_configure_cross_compiler_alternatives() {
+step7_generate_cross_compiler_env() {
 	local get_cross_compiler
-	get_cross_compiler="$(find_helper_script get_cross_compiler.sh)"
+	local env_dir
+	local shell_hint_found=0
+	local ktoolchain_script
+
+	if ! get_cross_compiler="$(find_helper_script get_cross_compiler.sh)"; then
+		echo "Error: get_cross_compiler.sh not found."
+		return 1
+	fi
 	require_env_vars LINUX_TOOL_CHAIN
 
-	config_cross_compiler() {
-		local link="$1"
-		local name="$2"
-		local x86_prefix
-		local arm64_prefix
-		local riscv_prefix
-		x86_prefix="$(${get_cross_compiler} x86)"
-		arm64_prefix="$(${get_cross_compiler} arm64)"
-		riscv_prefix="$(${get_cross_compiler} riscv)"
+	env_dir="${LINUX_TOOL_CHAIN}/env"
+	mkdir -p "${env_dir}"
 
-		if [ -L "${link}" ]; then
-			sudo update-alternatives --install "${link}" "${name}" "$(readlink -f "${link}")" 20
-		elif [ -f "${link}" ]; then
-			sudo cp -a "${link}" "${link}-backup"
-			sudo update-alternatives --install "${link}" "${name}" "${link}-backup" 20
-		fi
-		if [ "${name}" = "gcc" ]; then
-			sudo update-alternatives --install "${link}" "${name}" "${LINUX_TOOL_CHAIN}/x86/bin/${x86_prefix}${name}.br_real" 10
-			sudo update-alternatives --install "${link}" "${name}" "${LINUX_TOOL_CHAIN}/arm64/bin/${arm64_prefix}${name}.br_real" 10
-			sudo update-alternatives --install "${link}" "${name}" "${LINUX_TOOL_CHAIN}/riscv/bin/${riscv_prefix}${name}.br_real" 10
-		else
-			sudo update-alternatives --install "${link}" "${name}" "${LINUX_TOOL_CHAIN}/x86/bin/${x86_prefix}${name}" 10
-			sudo update-alternatives --install "${link}" "${name}" "${LINUX_TOOL_CHAIN}/arm64/bin/${arm64_prefix}${name}" 10
-			sudo update-alternatives --install "${link}" "${name}" "${LINUX_TOOL_CHAIN}/riscv/bin/${riscv_prefix}${name}" 10
-		fi
+	generate_arch_env() {
+		local arch="$1"
+		local cross_prefix
+		local tc_target
+		local tc_bin
+		local env_file
+		cross_prefix="$(${get_cross_compiler} "${arch}")"
+		tc_target="${cross_prefix%-}"
+		tc_bin="${LINUX_TOOL_CHAIN}/${arch}/bin"
+		env_file="${env_dir}/${arch}.env"
+
+		cat > "${env_file}" <<EOF
+export ARCH="${arch}"
+export CROSS_COMPILE="${cross_prefix}"
+export TC_TARGET="${tc_target}"
+export KTOOLCHAIN_ACTIVE_ARCH="${arch}"
+export KTOOLCHAIN_ACTIVE_BIN="${tc_bin}"
+
+case ":\${PATH}:" in
+	*":\${KTOOLCHAIN_ACTIVE_BIN}:"*) ;;
+	*) export PATH="\${KTOOLCHAIN_ACTIVE_BIN}:\${PATH}" ;;
+esac
+EOF
 	}
 
-	config_cross_compiler /usr/bin/gcc gcc
-	config_cross_compiler /usr/bin/ld ld
+	generate_arch_env x86
+	generate_arch_env arm64
+	generate_arch_env riscv
+
+	ktoolchain_script="${HOME}/scripts/ktoolchain.sh"
+	if [ ! -f "${ktoolchain_script}" ] && [ -f "${SCRIPT_DIR}/scripts/ktoolchain.sh" ]; then
+		ktoolchain_script="${SCRIPT_DIR}/scripts/ktoolchain.sh"
+	fi
+
+	if [ -f "${HOME}/.bashrc" ] && grep -q "ktoolchain.sh" "${HOME}/.bashrc"; then
+		shell_hint_found=1
+	fi
+	if [ -f "${HOME}/.zshrc" ] && grep -q "ktoolchain.sh" "${HOME}/.zshrc"; then
+		shell_hint_found=1
+	fi
+
+	echo "Generated cross-toolchain env files under ${env_dir}:"
+	echo "  - x86.env"
+	echo "  - arm64.env"
+	echo "  - riscv.env"
+	echo "Switch toolchain in current shell with:"
+	echo "  source ${ktoolchain_script}"
+	echo "  ktoolchain use arm64"
+
+	if [ "${shell_hint_found}" -eq 0 ]; then
+		echo "Hint: add 'source ${ktoolchain_script}' to ~/.bashrc or ~/.zshrc for convenience."
+	fi
 }
 
 echo "Interactive setup started."
@@ -251,6 +284,6 @@ run_step 3 "Configuring vim" step3_configure_vim
 run_step 4 "Configuring zsh" step4_configure_zsh
 run_step 5 "Building linux tree" step5_build_linux_tree
 run_step 6 "Installing cross-compiler" step6_install_cross_compiler
-run_step 7 "Configuring update-alternatives for cross-compilation" step7_configure_cross_compiler_alternatives
+run_step 7 "Generate user-space cross-compiler switch scripts" step7_generate_cross_compiler_env
 
 echo "Setup finished."

@@ -1,32 +1,73 @@
 #!/bin/bash
 
-if [ $# -ne 2 ]; then
-    echo "Usage: $1 <linux version> $2 <arch>"
+if [ $# -lt 1 ] || [ $# -gt 2 ]; then
+    echo "Usage: ${BASH_SOURCE[0]} <linux version> [arch]"
     exit 1
 fi
 
-linux_version=$1
-arch=$2
-export PATH=$PATH:${LINUX_TOOL_CHAIN}/${arch}/bin/
-cross_compile=$(get_cross_compiler.sh ${arch})
-source=${LINUX_SOURCE}/linux-${linux_version}
-output=${LINUX_BUILD}/linux-${linux_version}/${arch}
+find_helper_script() {
+    local name="$1"
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-pushd ${source}
+    if command -v "${name}" >/dev/null 2>&1; then
+        command -v "${name}"
+        return 0
+    fi
+    if [ -x "${HOME}/scripts/${name}" ]; then
+        echo "${HOME}/scripts/${name}"
+        return 0
+    fi
+    if [ -x "${script_dir}/../scripts/${name}" ]; then
+        echo "${script_dir}/../scripts/${name}"
+        return 0
+    fi
+    return 1
+}
 
-if [ ! -e ${output} ]; then
-    mkdir -p ${output}
+linux_version="$1"
+arch="${ARCH:-$2}"
+if [ -z "${arch}" ]; then
+    echo "Error: arch is empty. Set ARCH or pass [arch] argument."
+    exit 1
+fi
+cross_compile="${CROSS_COMPILE}"
+
+if [ -z "${cross_compile}" ]; then
+    if ! get_cross_compiler="$(find_helper_script get_cross_compiler.sh)"; then
+        echo "Error: get_cross_compiler.sh not found."
+        exit 1
+    fi
+    cross_compile="$("${get_cross_compiler}" "${arch}")"
 fi
 
-#make mrproper O=${output}
+if [ -n "${LINUX_TOOL_CHAIN}" ] && [ -d "${LINUX_TOOL_CHAIN}/${arch}/bin" ]; then
+    case ":${PATH}:" in
+        *":${LINUX_TOOL_CHAIN}/${arch}/bin:"*) ;;
+        *) export PATH="${LINUX_TOOL_CHAIN}/${arch}/bin:${PATH}" ;;
+    esac
+fi
 
-if [ ! -f ${output}/.config ]; then
-    make ARCH=${arch} CROSS_COMPILE=${cross_compile} defconfig O=${output}
+export ARCH="${arch}"
+export CROSS_COMPILE="${cross_compile}"
+linux_source="${LINUX_SOURCE}/linux-${linux_version}"
+output="${LINUX_BUILD}/linux-${linux_version}/${arch}"
+
+pushd "${linux_source}" >/dev/null
+
+if [ ! -e "${output}" ]; then
+    mkdir -p "${output}"
+fi
+
+# make mrproper O=${output}
+
+if [ ! -f "${output}/.config" ]; then
+    make ARCH="${arch}" CROSS_COMPILE="${cross_compile}" defconfig O="${output}"
 else
-	make ARCH=${arch} CROSS_COMPILE=${cross_compile} oldconfig O=${output}
+	make ARCH="${arch}" CROSS_COMPILE="${cross_compile}" oldconfig O="${output}"
 fi
-make ARCH=${arch} CROSS_COMPILE=${cross_compile} menuconfig O=${output}
-make ARCH=${arch} CROSS_COMPILE=${cross_compile} -j$(nproc) O=${output}
-make ARCH=${arch} CROSS_COMPILE=${cross_compile} COMPILED_SOURCE=1 KBUILD_ABS_SRCTREE=1 cscope O=${output}
-make ARCH=${arch} CROSS_COMPILE=${cross_compile} modules_prepare O=${output}
-popd
+make ARCH="${arch}" CROSS_COMPILE="${cross_compile}" menuconfig O="${output}"
+make ARCH="${arch}" CROSS_COMPILE="${cross_compile}" -j"$(nproc)" O="${output}"
+make ARCH="${arch}" CROSS_COMPILE="${cross_compile}" COMPILED_SOURCE=1 KBUILD_ABS_SRCTREE=1 cscope O="${output}"
+make ARCH="${arch}" CROSS_COMPILE="${cross_compile}" modules_prepare O="${output}"
+popd >/dev/null

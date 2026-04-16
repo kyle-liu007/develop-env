@@ -1,40 +1,89 @@
 #!/bin/bash
 # ===========================================================
-# Need be executed by source to export env
+# Should be sourced to persist exported env variables.
 # ===========================================================
 
-if [ $# -lt 2 ]; then
-    echo "Usage: $1 <linux version> $2 <arch> $3 <rebuild>"
-    exit 1
-fi
-
-linux_version=$(get_linux_version.sh $1)
-
-arch=$2
-working_dir=`pwd`
-
-linux_source=${LINUX_SOURCE}/linux-${linux_version}
-linux_output=${LINUX_BUILD}/linux-${linux_version}/${arch}
-
-build_kernel() {
-	unset_module_build_env.sh
-	echo "******* start building linux kernel *******"
-	pushd ${LINUX_ROOT}
-	./build.sh ${linux_version} ${arch}
-	popd
+is_sourced() {
+	[ "${BASH_SOURCE[0]}" != "$0" ]
 }
 
-if [ ! -z $3 ]; then
+finish() {
+	local code="$1"
+	if is_sourced; then
+		return "${code}"
+	fi
+	exit "${code}"
+}
+
+require_env_vars() {
+	local missing=0
+	local var_name
+	for var_name in "$@"; do
+		if [ -z "${!var_name}" ]; then
+			echo "Missing environment variable: ${var_name}" >&2
+			missing=1
+		fi
+	done
+	return "${missing}"
+}
+
+if [ $# -lt 2 ]; then
+	echo "Usage: ${BASH_SOURCE[0]} <linux version key> <arch> [rebuild]" >&2
+	finish 1
+fi
+
+if ! require_env_vars LINUX_ROOT LINUX_SOURCE LINUX_BUILD LINUX_TOOL_CHAIN; then
+	echo "Please export required environment variables first." >&2
+	finish 1
+fi
+
+if ! declare -F ktoolchain >/dev/null 2>&1; then
+	echo "Error: ktoolchain not found in current shell." >&2
+	echo "Run: source ~/scripts/ktoolchain.sh" >&2
+	finish 1
+fi
+
+if ! get_linux_version="$(command -v get_linux_version.sh)"; then
+	get_linux_version="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/get_linux_version.sh"
+fi
+if ! unset_module_build_env="$(command -v unset_module_build_env.sh)"; then
+	unset_module_build_env="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/unset_module_build_env.sh"
+fi
+if [ ! -x "${get_linux_version}" ]; then
+	echo "Error: get_linux_version.sh not found." >&2
+	finish 1
+fi
+if [ ! -x "${unset_module_build_env}" ]; then
+	echo "Error: unset_module_build_env.sh not found." >&2
+	finish 1
+fi
+
+linux_version="$("${get_linux_version}" "$1")"
+arch="$2"
+linux_output="${LINUX_BUILD}/linux-${linux_version}/${arch}"
+
+build_kernel() {
+	# shellcheck disable=SC1090
+	source "${unset_module_build_env}"
+	echo "******* start building linux kernel *******"
+	pushd "${LINUX_ROOT}" >/dev/null
+	./build.sh "${linux_version}" "${arch}"
+	popd >/dev/null
+}
+
+if [ -n "$3" ]; then
 	build_kernel
 fi
 
-# prepare module build headers
-kernel_modlib=/lib/modules/$(uname -r)
-sudo ln -sfT ${linux_output} ${kernel_modlib}/build
-sudo ln -sfT ${linux_output}/source ${kernel_modlib}/source
+# Prepare module build headers.
+kernel_modlib="/lib/modules/$(uname -r)"
+sudo ln -sfT "${linux_output}" "${kernel_modlib}/build"
+sudo ln -sfT "${linux_output}/source" "${kernel_modlib}/source"
 
-export ARCH=${arch}
+if ! ktoolchain use "${arch}"; then
+	finish 1
+fi
 
-cross_compile=$(get_cross_compiler.sh ${arch})
-sudo update-alternatives --set ld ${LINUX_TOOL_CHAIN}/${arch}/bin/${cross_compile}ld
-sudo update-alternatives --set gcc ${LINUX_TOOL_CHAIN}/${arch}/bin/${cross_compile}gcc.br_real
+export ARCH="${arch}"
+export CROSS_COMPILE
+export TC_TARGET
