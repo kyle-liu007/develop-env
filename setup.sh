@@ -255,11 +255,9 @@ step7_generate_cross_compiler_env() {
 		local arch="$1"
 		local cross_prefix
 		local tc_target
-		local tc_bin
 		local env_file
 		cross_prefix="$(${get_cross_compiler} "${arch}")"
 		tc_target="${cross_prefix%-}"
-		tc_bin="${LINUX_TOOL_CHAIN}/${arch}/bin"
 		env_file="${env_dir}/${arch}.env"
 
 		cat > "${env_file}" <<EOF
@@ -267,7 +265,7 @@ export ARCH="${arch}"
 export CROSS_COMPILE="${cross_prefix}"
 export TC_TARGET="${tc_target}"
 export KTOOLCHAIN_ACTIVE_ARCH="${arch}"
-export KTOOLCHAIN_ACTIVE_BIN="${tc_bin}"
+export KTOOLCHAIN_ACTIVE_BIN="\${LINUX_TOOL_CHAIN}/${arch}/bin"
 
 case ":\${PATH}:" in
 	*":\${KTOOLCHAIN_ACTIVE_BIN}:"*) ;;
