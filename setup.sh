@@ -5,10 +5,141 @@ set -e
 TOTAL_STEPS=7
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_REPO="${HOME}/develop-env"
+DEFAULT_ARCHES=(x86 arm64 riscv)
+DEFAULT_KERNEL_KEYS=(2 4 5 6)
+SELECTED_ARCHES=("${DEFAULT_ARCHES[@]}")
+SELECTED_KERNEL_KEYS=("${DEFAULT_KERNEL_KEYS[@]}")
+SKIP_CHSH=0
 
 if [ ! -d "${ENV_REPO}" ]; then
 	ENV_REPO="${SCRIPT_DIR}"
 fi
+
+print_usage() {
+	cat <<EOF
+Usage: ./setup.sh [options]
+
+Options:
+  --arch <list>              Restrict cross-compiler related setup to selected arch(es).
+                             Supported: x86, arm64, riscv
+                             Example: --arch arm64 or --arch x86,arm64
+  --kernel <list>            Restrict linux source preparation to selected kernel key(s).
+                             Supported: 2,4,5,6
+                             Example: --kernel 6 or --kernel 4,6
+  --skip-chsh                Skip changing default shell to zsh in step 4.
+  -h, --help                 Show this help message and exit.
+EOF
+}
+
+array_contains() {
+	local target="$1"
+	shift
+	local item
+	for item in "$@"; do
+		if [ "${item}" = "${target}" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+add_arches_from_arg() {
+	local raw="$1"
+	local arch
+	local normalized
+	local raw_arches
+	IFS=',' read -r -a raw_arches <<<"${raw}"
+	for arch in "${raw_arches[@]}"; do
+		normalized="$(echo "${arch}" | tr -d '[:space:]')"
+		case "${normalized}" in
+			x86|arm64|riscv) ;;
+			*)
+				echo "Unsupported arch: ${normalized}. Supported: x86, arm64, riscv"
+				exit 1
+				;;
+		esac
+		if ! array_contains "${normalized}" "${SELECTED_ARCHES[@]}"; then
+			SELECTED_ARCHES+=("${normalized}")
+		fi
+	done
+}
+
+add_kernels_from_arg() {
+	local raw="$1"
+	local key
+	local normalized
+	local raw_keys
+	IFS=',' read -r -a raw_keys <<<"${raw}"
+	for key in "${raw_keys[@]}"; do
+		normalized="$(echo "${key}" | tr -d '[:space:]')"
+		case "${normalized}" in
+			2|4|5|6) ;;
+			*)
+				echo "Unsupported kernel key: ${normalized}. Supported: 2, 4, 5, 6"
+				exit 1
+				;;
+		esac
+		if ! array_contains "${normalized}" "${SELECTED_KERNEL_KEYS[@]}"; then
+			SELECTED_KERNEL_KEYS+=("${normalized}")
+		fi
+	done
+}
+
+parse_args() {
+	local explicit_arch=0
+	local explicit_kernel=0
+
+	while [ "$#" -gt 0 ]; do
+		case "$1" in
+			--arch)
+				if [ -z "$2" ]; then
+					echo "Error: --arch requires a value."
+					exit 1
+				fi
+				if [ "${explicit_arch}" -eq 0 ]; then
+					SELECTED_ARCHES=()
+					explicit_arch=1
+				fi
+				add_arches_from_arg "$2"
+				shift 2
+				;;
+			--kernel)
+				if [ -z "$2" ]; then
+					echo "Error: --kernel requires a value."
+					exit 1
+				fi
+				if [ "${explicit_kernel}" -eq 0 ]; then
+					SELECTED_KERNEL_KEYS=()
+					explicit_kernel=1
+				fi
+				add_kernels_from_arg "$2"
+				shift 2
+				;;
+			--skip-chsh)
+				SKIP_CHSH=1
+				shift
+				;;
+			-h|--help)
+				print_usage
+				exit 0
+				;;
+			*)
+				echo "Unknown argument: $1"
+				print_usage
+				exit 1
+				;;
+		esac
+	done
+
+	if [ "${#SELECTED_ARCHES[@]}" -eq 0 ]; then
+		echo "Error: at least one arch must be selected."
+		exit 1
+	fi
+	if [ "${#SELECTED_KERNEL_KEYS[@]}" -eq 0 ]; then
+		echo "Error: at least one kernel key must be selected."
+		exit 1
+	fi
+}
 
 ask_yes_no() {
 	local prompt="$1"
@@ -153,17 +284,23 @@ step4_configure_zsh() {
 
 	if [ "${session_parent_shell_name}" = "zsh" ]; then
 		echo "Current session shell is zsh, skipping default shell change."
+	elif [ "${SKIP_CHSH}" -eq 1 ]; then
+		echo "Skipping default shell change because --skip-chsh is set."
 	else
-		echo "Setting zsh as default shell"
-		if sudo -n true 2>/dev/null; then
-			if sudo -n chsh -s "${zsh_bin}" "${USER}"; then
-				echo "Default shell updated to ${zsh_bin}"
+		if ask_yes_no "Set zsh as default shell via chsh?"; then
+			echo "Setting zsh as default shell"
+			if sudo -n true 2>/dev/null; then
+				if sudo -n chsh -s "${zsh_bin}" "${USER}"; then
+					echo "Default shell updated to ${zsh_bin}"
+				else
+					echo "Warning: failed to change default shell automatically."
+				fi
 			else
-				echo "Warning: failed to change default shell automatically."
+				echo "Warning: skipping default shell change because sudo privilege is unavailable."
+				echo "Run manually when needed: sudo chsh -s ${zsh_bin} ${USER}"
 			fi
 		else
-			echo "Warning: skipping default shell change because sudo privilege is unavailable."
-			echo "Run manually when needed: sudo chsh -s ${zsh_bin} ${USER}"
+			echo "Skipping default shell change."
 		fi
 	fi
 
@@ -199,19 +336,13 @@ step5_build_linux_tree() {
 		fi
 	}
 
-	build_linux_source 2
-	build_linux_source 4
-	build_linux_source 5
-	build_linux_source 6
+	local kernel_key
+	for kernel_key in "${SELECTED_KERNEL_KEYS[@]}"; do
+		build_linux_source "${kernel_key}"
+	done
 
 	mkdir -p "${LINUX_VSCODE}"
 	mkdir -p "${LINUX_ROOT}/linux-qemu"
-	if [ -d "/lib/modules/$(uname -r)/build" ]; then
-		sudo cp -dR "/lib/modules/$(uname -r)/build" "/lib/modules/$(uname -r)/build.bak"
-	fi
-	if [ -d "/lib/modules/$(uname -r)/source" ]; then
-		sudo cp -dR "/lib/modules/$(uname -r)/source" "/lib/modules/$(uname -r)/source.bak"
-	fi
 }
 
 step6_install_cross_compiler() {
@@ -232,15 +363,27 @@ step6_install_cross_compiler() {
 		fi
 	}
 
-	build_tool_chain arm64 aarch64
-	build_tool_chain riscv riscv64-lp64d
-	build_tool_chain x86 x86-64
+	local arch
+	local sub_arch
+	for arch in "${SELECTED_ARCHES[@]}"; do
+		case "${arch}" in
+			arm64) sub_arch="aarch64" ;;
+			riscv) sub_arch="riscv64-lp64d" ;;
+			x86) sub_arch="x86-64" ;;
+			*)
+				echo "Error: unsupported arch ${arch}"
+				return 1
+				;;
+		esac
+		build_tool_chain "${arch}" "${sub_arch}"
+	done
 }
 
 step7_generate_cross_compiler_env() {
 	local get_cross_compiler
 	local env_dir
 	local ktoolchain_script
+	local suggested_arch
 
 	if ! get_cross_compiler="$(find_helper_script get_cross_compiler.sh)"; then
 		echo "Error: get_cross_compiler.sh not found."
@@ -274,9 +417,10 @@ esac
 EOF
 	}
 
-	generate_arch_env x86
-	generate_arch_env arm64
-	generate_arch_env riscv
+	local arch
+	for arch in "${SELECTED_ARCHES[@]}"; do
+		generate_arch_env "${arch}"
+	done
 
 	ktoolchain_script="${HOME}/scripts/ktoolchain.sh"
 	if [ ! -f "${ktoolchain_script}" ] && [ -f "${SCRIPT_DIR}/scripts/ktoolchain.sh" ]; then
@@ -284,23 +428,31 @@ EOF
 	fi
 
 	echo "Generated cross-toolchain env files under ${env_dir}:"
-	echo "  - x86.env"
-	echo "  - arm64.env"
-	echo "  - riscv.env"
+	for arch in "${SELECTED_ARCHES[@]}"; do
+		echo "  - ${arch}.env"
+	done
 	echo "Switch toolchain in current shell with:"
 	echo "  source ${ktoolchain_script}"
-	echo "  ktoolchain use arm64"
+	suggested_arch="${SELECTED_ARCHES[0]}"
+	echo "  ktoolchain use ${suggested_arch}"
 }
+
+parse_args "$@"
 
 echo "Interactive setup started."
 echo "Press Enter to accept default [Y] on each step."
+echo "Selected arch(es): ${SELECTED_ARCHES[*]}"
+echo "Selected kernel key(s): ${SELECTED_KERNEL_KEYS[*]}"
+if [ "${SKIP_CHSH}" -eq 1 ]; then
+	echo "Option enabled: skip default shell change"
+fi
 
-run_step 1 "Installing essential SDKs and tools" step1_install_sdks
-run_step 2 "Clone/sync develop environment configuration" step2_sync_env_files
-run_step 3 "Configuring vim" step3_configure_vim
-run_step 4 "Configuring zsh" step4_configure_zsh
-run_step 5 "Building linux tree" step5_build_linux_tree
-run_step 6 "Installing cross-compiler" step6_install_cross_compiler
-run_step 7 "Generate user-space cross-compiler switch scripts" step7_generate_cross_compiler_env
+run_step 1 "Install apt build dependencies and base developer tools" step1_install_sdks
+run_step 2 "Sync develop-env dotfiles/scripts into HOME" step2_sync_env_files
+run_step 3 "Install vim-plug and sync Vim plugins from .vimrc" step3_configure_vim
+run_step 4 "Configure zsh + oh-my-zsh/plugins and optionally set default shell" step4_configure_zsh
+run_step 5 "Prepare Linux workspace and selected kernel source trees" step5_build_linux_tree
+run_step 6 "Install selected Bootlin cross toolchains into LINUX_TOOL_CHAIN" step6_install_cross_compiler
+run_step 7 "Generate per-arch toolchain env scripts for ktoolchain" step7_generate_cross_compiler_env
 
 echo "Setup finished."

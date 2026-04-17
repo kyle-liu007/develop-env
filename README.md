@@ -4,6 +4,15 @@ environment for daily develop
 ## 快速开始
 `./setup.sh`：交互式执行 7 个初始化步骤，可按提示跳过。
 
+可选细分参数：
+- `--arch <x86|arm64|riscv[,..]>`：仅处理指定架构的交叉编译工具链与环境脚本。
+- `--kernel <2|4|5|6[,..]>`：仅准备指定内核 key 对应源码。
+- `--skip-chsh`：跳过默认 shell 切换。
+
+示例：
+- `./setup.sh --arch arm64 --kernel 6`
+- `./setup.sh --arch x86,arm64 --skip-chsh`
+
 ## 脚本用法
 多数脚本依赖以下环境变量：`LINUX_ROOT`、`LINUX_SOURCE`、`LINUX_BUILD`、`LINUX_TOOL_CHAIN`。
 
