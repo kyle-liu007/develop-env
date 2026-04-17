@@ -104,17 +104,16 @@ if [ -n "$3" ]; then
 	build_kernel
 fi
 
-# Prepare module build headers.
-kernel_modlib="/lib/modules/$(uname -r)"
-sudo ln -sfT "${linux_output}" "${kernel_modlib}/build"
-sudo ln -sfT "${linux_output}/source" "${kernel_modlib}/source"
-
 if ! ktoolchain use "${arch}"; then
 	finish 1
 fi
 
-export ARCH="${arch}"
-export CROSS_COMPILE
-export TC_TARGET
 export KERNELDIR="${linux_output}/source"
 export SYSOUT="${linux_output}"
+
+# Prepare module build headers for modules do not support cross-compilation.
+#kernel_modlib="/lib/modules/$(uname -r)"
+#sudo mv "${kernel_modlib}/build" ""${kernel_modlib}/build.bak"
+#sudo mv "${kernel_modlib}/source" ""${kernel_modlib}/source.bak"
+#sudo ln -sfT "${linux_output}" "${kernel_modlib}/build"
+#sudo ln -sfT "${linux_output}/source" "${kernel_modlib}/source"

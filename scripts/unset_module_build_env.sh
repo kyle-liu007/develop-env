@@ -34,10 +34,12 @@ if ! ktoolchain off; then
 	finish 1
 fi
 
-kernel_modlib="/lib/modules/$(uname -r)"
-if [ -d "${kernel_modlib}/build.bak" ]; then
-	sudo cp -dR "${kernel_modlib}/build.bak" "${kernel_modlib}/build"
-fi
-if [ -d "${kernel_modlib}/source.bak" ]; then
-	sudo cp -dR "${kernel_modlib}/source.bak" "${kernel_modlib}/source"
-fi
+unset KERNELDIR SYSOUT
+
+# kernel_modlib="/lib/modules/$(uname -r)"
+# if [ -d "${kernel_modlib}/build.bak" ]; then
+# 	sudo cp -dR "${kernel_modlib}/build.bak" "${kernel_modlib}/build"
+# fi
+# if [ -d "${kernel_modlib}/source.bak" ]; then
+# 	sudo cp -dR "${kernel_modlib}/source.bak" "${kernel_modlib}/source"
+# fi
