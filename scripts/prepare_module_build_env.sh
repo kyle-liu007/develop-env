@@ -116,3 +116,5 @@ fi
 export ARCH="${arch}"
 export CROSS_COMPILE
 export TC_TARGET
+export KERNELDIR="${linux_output}/source"
+export SYSOUT="${linux_output}"
