@@ -404,7 +404,7 @@ step7_generate_cross_compiler_env() {
 		env_file="${env_dir}/${arch}.env"
 
 		cat > "${env_file}" <<EOF
-export ARCH="${arch}"
+export ARCH="$( [ "${arch}" = "x86" ] && echo "x86_64" || echo "${arch}" )"
 export CROSS_COMPILE="${cross_prefix}"
 export TC_TARGET="${tc_target}"
 export KTOOLCHAIN_ACTIVE_ARCH="${arch}"
