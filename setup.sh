@@ -7,9 +7,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_REPO="${HOME}/develop-env"
 DEFAULT_ARCHES=(x86 arm64 riscv)
 DEFAULT_KERNEL_KEYS=(2 4 5 6)
+DEFAULT_STEPS=(1 2 3 4 5 6 7)
 SELECTED_ARCHES=("${DEFAULT_ARCHES[@]}")
 SELECTED_KERNEL_KEYS=("${DEFAULT_KERNEL_KEYS[@]}")
+SELECTED_STEPS=("${DEFAULT_STEPS[@]}")
+STEPS_SPECIFIED=0
 SKIP_CHSH=0
+FORCE_CHSH=0
 
 if [ ! -d "${ENV_REPO}" ]; then
 	ENV_REPO="${SCRIPT_DIR}"
@@ -26,6 +30,18 @@ Options:
   --kernel <list>            Restrict linux source preparation to selected kernel key(s).
                              Supported: 2,4,5,6
                              Example: --kernel 6 or --kernel 4,6
+  --steps <list>             Run selected setup step(s) only.
+                             Supported: 1,2,3,4,5,6,7
+                             Example: --steps 1,3,7
+                             Steps:
+                               1 Install apt build dependencies and base developer tools
+                               2 Sync develop-env dotfiles/scripts into HOME
+                               3 Install vim-plug and sync Vim plugins from .vimrc
+                               4 Configure zsh + oh-my-zsh/plugins and optional default shell change
+                               5 Prepare Linux workspace and selected kernel source trees
+                               6 Install selected Bootlin cross toolchains into LINUX_TOOL_CHAIN
+                               7 Generate per-arch toolchain env scripts for ktoolchain
+  --set-chsh                 Change default shell to zsh in step 4 (non-interactive).
   --skip-chsh                Skip changing default shell to zsh in step 4.
   -h, --help                 Show this help message and exit.
 EOF
@@ -85,6 +101,27 @@ add_kernels_from_arg() {
 	done
 }
 
+add_steps_from_arg() {
+	local raw="$1"
+	local step
+	local normalized
+	local raw_steps
+	IFS=',' read -r -a raw_steps <<<"${raw}"
+	for step in "${raw_steps[@]}"; do
+		normalized="$(echo "${step}" | tr -d '[:space:]')"
+		case "${normalized}" in
+			1|2|3|4|5|6|7) ;;
+			*)
+				echo "Unsupported step: ${normalized}. Supported: 1, 2, 3, 4, 5, 6, 7"
+				exit 1
+				;;
+		esac
+		if ! array_contains "${normalized}" "${SELECTED_STEPS[@]}"; then
+			SELECTED_STEPS+=("${normalized}")
+		fi
+	done
+}
+
 parse_args() {
 	local explicit_arch=0
 	local explicit_kernel=0
@@ -115,6 +152,22 @@ parse_args() {
 				add_kernels_from_arg "$2"
 				shift 2
 				;;
+			--steps)
+				if [ -z "$2" ]; then
+					echo "Error: --steps requires a value."
+					exit 1
+				fi
+				if [ "${STEPS_SPECIFIED}" -eq 0 ]; then
+					SELECTED_STEPS=()
+					STEPS_SPECIFIED=1
+				fi
+				add_steps_from_arg "$2"
+				shift 2
+				;;
+			--set-chsh)
+				FORCE_CHSH=1
+				shift
+				;;
 			--skip-chsh)
 				SKIP_CHSH=1
 				shift
@@ -139,25 +192,19 @@ parse_args() {
 		echo "Error: at least one kernel key must be selected."
 		exit 1
 	fi
+	if [ "${#SELECTED_STEPS[@]}" -eq 0 ]; then
+		echo "Error: at least one setup step must be selected."
+		exit 1
+	fi
+	if [ "${SKIP_CHSH}" -eq 1 ] && [ "${FORCE_CHSH}" -eq 1 ]; then
+		echo "Error: --set-chsh and --skip-chsh cannot be used together."
+		exit 1
+	fi
 }
 
-ask_yes_no() {
-	local prompt="$1"
-	local answer
-	while true; do
-		read -r -p "${prompt} [Y/n]: " answer
-		case "${answer}" in
-			""|"y"|"Y"|"yes"|"YES"|"Yes")
-				return 0
-				;;
-			"n"|"N"|"no"|"NO"|"No")
-				return 1
-				;;
-			*)
-				echo "Please input y or n."
-				;;
-		esac
-	done
+step_enabled() {
+	local target="$1"
+	array_contains "${target}" "${SELECTED_STEPS[@]}"
 }
 
 run_step() {
@@ -165,11 +212,11 @@ run_step() {
 	local title="$2"
 	local func_name="$3"
 
-	if ask_yes_no "[${num}/${TOTAL_STEPS}] ${title}"; then
+	if step_enabled "${num}"; then
 		echo "Running step ${num}: ${title}"
 		"${func_name}"
 	else
-		echo "Skipping step ${num}: ${title}"
+		echo "Skipping step ${num}: ${title} (not selected)"
 	fi
 }
 
@@ -286,22 +333,21 @@ step4_configure_zsh() {
 		echo "Current session shell is zsh, skipping default shell change."
 	elif [ "${SKIP_CHSH}" -eq 1 ]; then
 		echo "Skipping default shell change because --skip-chsh is set."
-	else
-		if ask_yes_no "Set zsh as default shell via chsh?"; then
-			echo "Setting zsh as default shell"
-			if sudo -n true 2>/dev/null; then
-				if sudo -n chsh -s "${zsh_bin}" "${USER}"; then
-					echo "Default shell updated to ${zsh_bin}"
-				else
-					echo "Warning: failed to change default shell automatically."
-				fi
+	elif [ "${FORCE_CHSH}" -eq 1 ]; then
+		echo "Setting zsh as default shell (--set-chsh enabled)"
+		if sudo -n true 2>/dev/null; then
+			if sudo -n chsh -s "${zsh_bin}" "${USER}"; then
+				echo "Default shell updated to ${zsh_bin}"
 			else
-				echo "Warning: skipping default shell change because sudo privilege is unavailable."
-				echo "Run manually when needed: sudo chsh -s ${zsh_bin} ${USER}"
+				echo "Warning: failed to change default shell automatically."
 			fi
 		else
-			echo "Skipping default shell change."
+			echo "Warning: skipping default shell change because sudo privilege is unavailable."
+			echo "Run manually when needed: sudo chsh -s ${zsh_bin} ${USER}"
 		fi
+	else
+		echo "Skipping default shell change by default."
+		echo "Use --set-chsh to enable automatic chsh."
 	fi
 
 	cp "${ENV_REPO}/.zshrc" "${HOME}/"
@@ -439,10 +485,18 @@ EOF
 
 parse_args "$@"
 
-echo "Interactive setup started."
-echo "Press Enter to accept default [Y] on each step."
+if [ "${STEPS_SPECIFIED}" -eq 0 ]; then
+	print_usage
+	exit 0
+fi
+
+echo "Non-interactive setup started."
 echo "Selected arch(es): ${SELECTED_ARCHES[*]}"
 echo "Selected kernel key(s): ${SELECTED_KERNEL_KEYS[*]}"
+echo "Selected step(s): ${SELECTED_STEPS[*]}"
+if [ "${FORCE_CHSH}" -eq 1 ]; then
+	echo "Option enabled: set default shell to zsh"
+fi
 if [ "${SKIP_CHSH}" -eq 1 ]; then
 	echo "Option enabled: skip default shell change"
 fi
