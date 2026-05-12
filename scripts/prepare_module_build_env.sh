@@ -57,7 +57,7 @@ require_env_vars() {
 }
 
 if [ $# -lt 2 ]; then
-	echo "Usage: $(script_path) <linux version key> <arch> [rebuild]" >&2
+	echo "Usage: source $(script_path) <linux version key> <arch> [rebuild]" >&2
 	finish 1
 fi
 
