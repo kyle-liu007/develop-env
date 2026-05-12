@@ -11,6 +11,7 @@ export LINUX_VSCODE=${LINUX_ROOT}/linux-vscode
 export CMAKE_EXPORT_COMPILE_COMMANDS=1
 export PATH=$PATH:~/scripts
 export PATH=$PATH:~/.local/bin
+export PATH=$PATH:/usr/local/go/bin
 export DISPLAY=`grep -oP "(?<=nameserver ).+" /etc/resolv.conf`:0.0
 
 export hostip=$(ip route | grep default | awk '{print $3}')
